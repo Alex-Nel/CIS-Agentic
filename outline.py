@@ -1,15 +1,34 @@
 """
-pip install langchain langgraph (openai - optional)
+Multi-Agent Code Debate System
+3 agents (Performance, Security, Judge) debate to produce optimal code.
+
+pip install langchain langgraph langchain-openai python-dotenv pydantic
 """
 
-
+import os
 from typing import TypedDict
+from dotenv import load_dotenv
+from langchain_google_genai import ChatGoogleGenerativeAI
+from pydantic import BaseModel
+
+
+# ── Load environment variables ─────────────────────────────────────────────── #
+load_dotenv()
+
+llm = ChatGoogleGenerativeAI(
+    model="gemini-2.5-flash",
+    temperature=0.2,
+    api_key=os.getenv("GEMINI_API_KEY"),
+)
+
+
+# ── State definitions ─────────────────────────────────────────────────────── #
 
 # Debate state, used across all agents
 class DebateState(TypedDict):
     task: str
     user_request: str
-    performance_arg: str
+    performance_argument: str   # fixed: was "performance_arg"
     security_argument: str
     winner: str
 
@@ -39,11 +58,19 @@ class DebateState2(TypedDict):
     final_code: str
 
 
+# ── Structured output model (for future use) ──────────────────────────────── #
+
+class CodeProposal(BaseModel):
+    code: str
+    time_complexity: str
+    space_complexity: str
+    tradeoffs: str
 
 
+# ── Agent definitions ─────────────────────────────────────────────────────── #
 
 # template for the performance agent
-# change to accomidate specific LLM models
+# change to accommodate specific LLM models
 def performance_agent(state: DebateState):
     prompt = f"""
     You are a senior systems engineer.
@@ -73,9 +100,8 @@ def performance_agent(state: DebateState):
     }
 
 
-
 # template for the security agent
-# change to accomidate specific LLM models
+# change to accommodate specific LLM models
 def security_agent(state: DebateState):
     prompt = f"""
     You are a security-focused software architect.
@@ -104,9 +130,8 @@ def security_agent(state: DebateState):
     }
 
 
-
 # template for the judging agent
-# change to accomidate specific LLM models
+# change to accommodate specific LLM models
 def judge_agent(state: DebateState):
     prompt = f"""
     You are a principal engineer deciding between two implementations.
@@ -131,26 +156,7 @@ def judge_agent(state: DebateState):
     }
 
 
-
-
-
-from pydantic import BaseModel
-
-class CodeProposal(BaseModel):
-    code: str
-    time_complexity: str
-    space_complexity: str
-    tradeoffs: str
-
-
-
-
-
-# ---------------------------------------------------------------------------------- #
-# -------------------------- Building the graph ------------------------------------ #
-# ---------------------------------------------------------------------------------- #
-
-
+# ── Build the LangGraph pipeline ─────────────────────────────────────────── #
 
 from langgraph.graph import StateGraph
 
@@ -170,8 +176,7 @@ graph.set_finish_point("judge")
 app = graph.compile()
 
 
-
-
+# ── Multi-round router (for future use with DebateState2) ─────────────────── #
 
 def continue_debate(state):
     if state["round"] < state["max_rounds"]:
@@ -179,11 +184,24 @@ def continue_debate(state):
     return "stop"
 
 
+# ── Run the system ────────────────────────────────────────────────────────── #
 
+if __name__ == "__main__":
+    result = app.invoke({
+        "user_request": "Write a Python function to sort a list of integers."
+    })
 
+    print("\n" + "=" * 60)
+    print("PERFORMANCE AGENT:")
+    print("=" * 60)
+    print(result.get("performance_argument", "No response"))
 
-# Running the system
+    print("\n" + "=" * 60)
+    print("SECURITY AGENT:")
+    print("=" * 60)
+    print(result.get("security_argument", "No response"))
 
-result = app.invoke({
-    "user_request": "Write a Python function to sort a list of integers."
-})
+    print("\n" + "=" * 60)
+    print("JUDGE DECISION:")
+    print("=" * 60)
+    print(result.get("winner", "No decision"))
