@@ -1,0 +1,8 @@
+body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; background:#0b0f19; color:#e6e9f2; }
+.container { max-width: 980px; margin: 24px auto; padding: 20px; }
+.row { margin: 12px 0; display:flex; flex-direction:column; gap:6px; }
+input, textarea { padding: 10px; border-radius: 10px; border:1px solid #2a3142; background:#11182a; color:#e6e9f2; }
+button { padding: 10px 14px; border-radius: 12px; border:0; background:#4f7cff; color:white; cursor:pointer; font-weight:600; }
+pre { background:#11182a; border:1px solid #2a3142; padding: 12px; border-radius: 12px; overflow:auto; max-height: 420px; }
+.code { white-space: pre; background:#11182a; border:1px solid #2a3142; padding:12px; border-radius:12px; overflow:auto; }
+.badge { display:inline-block; padding:4px 10px; border-radius: 999px; background:#26314d; margin-bottom:10px; }
