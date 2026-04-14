@@ -17,10 +17,16 @@ def _safe_parse_json(text: str) -> dict:
     Minimal JSON extraction. In production, you may want a more robust parser.
     """
     text = text.strip()
-    # If model accidentally wraps in markdown fences
+    # Strip markdown fences; handle ```json ... ``` (split("```")[1] leaves a "json" line).
     if text.startswith("```"):
-        text = text.split("```", 2)[1]
-    return json.loads(text)
+        text = text[3:].lstrip()
+        first_nl = text.find("\n")
+        head = text[:first_nl] if first_nl != -1 else text
+        if first_nl != -1 and head.strip().lower() in {"json", ""}:
+            text = text[first_nl + 1 :]
+        if "```" in text:
+            text = text.rsplit("```", 1)[0]
+    return json.loads(text.strip())
 
 
 class DebateState(TypedDict):

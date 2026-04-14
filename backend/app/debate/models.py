@@ -1,5 +1,5 @@
-from pydantic import BaseModel, Field
-from typing import List, Optional, Dict, Any, Literal
+from pydantic import BaseModel, Field, field_validator
+from typing import List, Optional, Dict, Any, Literal, Union
 
 
 class DebateRequest(BaseModel):
@@ -15,6 +15,13 @@ class CodeProposal(BaseModel):
     key_points: List[str] = Field(..., description="Key optimizations or safety/readability improvements.")
     tradeoffs: str
     assumptions: Optional[str] = None
+
+    @field_validator("tradeoffs", mode="before")
+    @classmethod
+    def _tradeoffs_to_str(cls, v: Union[str, List[Any]]) -> str:
+        if isinstance(v, list):
+            return "\n".join(str(x) for x in v)
+        return v
 
 
 class Critique(BaseModel):

@@ -59,15 +59,26 @@ def stream_debate(req: DebateRequest):
             "judge": {},
         }
 
-        # stream() yields state updates as the graph executes
-        for update in debate_app.stream(state):
-            # update is a dict keyed by node name -> partial state delta
-            payload = json.dumps(update, ensure_ascii=False)
-            yield f"event: update\ndata: {payload}\n\n"
+        # updates: per-node deltas (same shape as default stream_mode).
+        # values: full state after each step; last chunk matches a single invoke().
+        last_values: dict | None = None
+        for chunk in debate_app.stream(
+            state, stream_mode=["updates", "values"]
+        ):
+            if isinstance(chunk, tuple) and len(chunk) == 2:
+                mode, payload = chunk
+                if mode == "updates":
+                    yield f"event: update\ndata: {json.dumps(payload, ensure_ascii=False)}\n\n"
+                elif mode == "values":
+                    last_values = payload
+            else:
+                yield f"event: update\ndata: {json.dumps(chunk, ensure_ascii=False)}\n\n"
 
-        # final state can be obtained by invoke or from last stream chunk;
-        # easiest is to run invoke again in non-stream mode if you want final snapshot.
-        final = debate_app.invoke(state)
-        yield f"event: final\ndata: {json.dumps(final['judge'], ensure_ascii=False)}\n\n"
+        if not last_values:
+            raise RuntimeError("Stream ended without a full state snapshot")
+        judge = last_values.get("judge")
+        if judge is None or judge == {}:
+            raise RuntimeError("Stream ended before judge produced a decision")
+        yield f"event: final\ndata: {json.dumps(judge, ensure_ascii=False)}\n\n"
 
     return StreamingResponse(event_gen(), media_type="text/event-stream")
