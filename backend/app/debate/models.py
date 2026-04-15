@@ -23,6 +23,15 @@ class CodeProposal(BaseModel):
             return "\n".join(str(x) for x in v)
         return v
 
+    @field_validator("assumptions", mode="before")
+    @classmethod
+    def _assumptions_to_str(cls, v: Union[str, List[Any], None]) -> Union[str, None]:
+        if v is None:
+            return None
+        if isinstance(v, list):
+            return "\n".join(str(x) for x in v)
+        return v
+
 
 class Critique(BaseModel):
     issues: List[str]
