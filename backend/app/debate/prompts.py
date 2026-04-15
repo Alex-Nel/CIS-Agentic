@@ -28,6 +28,14 @@ Output JSON with keys:
 - key_points (array of strings)
 - tradeoffs (string)
 - assumptions (string optional)
+
+Hard limits (must follow):
+- Keep `code` concise and production-ready, max ~2500 characters.
+- `time_complexity` max 80 chars.
+- `space_complexity` max 80 chars.
+- `key_points`: 1-3 items, each <= 140 chars.
+- `tradeoffs`: <= 280 chars.
+- `assumptions` (if present): <= 280 chars.
 """
 
 CRITIQUE_INSTRUCTIONS = """You will critique the opponent proposal with your priority lens.
@@ -41,6 +49,11 @@ Output JSON with keys:
 - issues (array of strings)
 - suggested_changes (array of strings)
 - risk_notes (array of strings optional)
+
+Hard limits (must follow):
+- `issues`: 1-4 items, each <= 180 chars.
+- `suggested_changes`: 1-4 items, each <= 180 chars.
+- `risk_notes` (if present): 0-3 items, each <= 180 chars.
 """
 
 REBUTTAL_INSTRUCTIONS = """Revise YOUR proposal in response to critique while keeping your priority.
@@ -58,6 +71,14 @@ Return revised proposal in the SAME JSON schema as a proposal:
 - key_points
 - tradeoffs
 - assumptions optional
+
+Keep the same hard limits as proposal output:
+- code <= ~2500 chars
+- time_complexity <= 80 chars
+- space_complexity <= 80 chars
+- key_points: 1-3 items, each <= 140 chars
+- tradeoffs <= 280 chars
+- assumptions (if present) <= 280 chars
 """
 
 JUDGE_INSTRUCTIONS = """You are judging for task: {task}
