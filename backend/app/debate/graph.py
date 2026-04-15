@@ -43,11 +43,21 @@ class DebateState(TypedDict):
     perf_rebuttals: Annotated[List[Dict[str, Any]], operator.add]
     sec_rebuttals: Annotated[List[Dict[str, Any]], operator.add]
 
+    # distilled memory across rounds
+    debate_summary: str
+
     judge: Dict[str, Any]
 
 
 def perf_propose(state: DebateState) -> Dict[str, Any]:
-    prompt = P.PROPOSAL_INSTRUCTIONS.format(task=state["task"], language=state["language"])
+    if state["round"] > 1:
+        prompt = P.REFLEXION_PROMPT.format(
+            task=state["task"],
+            language=state["language"],
+            debate_summary=state["debate_summary"],
+        )
+    else:
+        prompt = P.PROPOSAL_INSTRUCTIONS.format(task=state["task"], language=state["language"])
     resp = llm.invoke([("system", P.PERF_SYSTEM), ("human", prompt)])
     data = _safe_parse_json(resp.content)
     proposal = CodeProposal(**data).model_dump()
@@ -55,7 +65,14 @@ def perf_propose(state: DebateState) -> Dict[str, Any]:
 
 
 def sec_propose(state: DebateState) -> Dict[str, Any]:
-    prompt = P.PROPOSAL_INSTRUCTIONS.format(task=state["task"], language=state["language"])
+    if state["round"] > 1:
+        prompt = P.REFLEXION_PROMPT.format(
+            task=state["task"],
+            language=state["language"],
+            debate_summary=state["debate_summary"],
+        )
+    else:
+        prompt = P.PROPOSAL_INSTRUCTIONS.format(task=state["task"], language=state["language"])
     resp = llm.invoke([("system", P.SEC_SYSTEM), ("human", prompt)])
     data = _safe_parse_json(resp.content)
     proposal = CodeProposal(**data).model_dump()
@@ -110,10 +127,23 @@ def advance_round(state: DebateState) -> Dict[str, Any]:
     # Adopt latest rebuttals as the next round's "current proposals"
     perf_latest = state["perf_rebuttals"][-1]
     sec_latest = state["sec_rebuttals"][-1]
+
+    # Summarize-and-Forget: distill unresolved trade-offs before moving on
+    summary_prompt = P.SUMMARIZE_ROUND_PROMPT.format(
+        perf=json.dumps(perf_latest, indent=2),
+        sec=json.dumps(sec_latest, indent=2),
+    )
+    resp = llm.invoke([("human", summary_prompt)])
+    round_summary = resp.content.strip()[:500]  # hard cap at 500 chars
+
+    current_summary = state.get("debate_summary", "")
+    updated_summary = f"{current_summary}\nRound {state['round']} Summary: {round_summary}".strip()
+
     return {
         "round": state["round"] + 1,
         "perf_proposals": [perf_latest],
         "sec_proposals": [sec_latest],
+        "debate_summary": updated_summary,
     }
 
 
@@ -124,11 +154,13 @@ def route_after_round(state: DebateState) -> Literal["continue", "judge"]:
 def judge(state: DebateState) -> Dict[str, Any]:
     perf = state["perf_proposals"][-1]
     sec = state["sec_proposals"][-1]
+    debate_summary = state.get("debate_summary", "No prior rounds.")
     prompt = P.JUDGE_INSTRUCTIONS.format(
         task=state["task"],
         language=state["language"],
         perf=json.dumps(perf, indent=2),
         sec=json.dumps(sec, indent=2),
+        debate_summary=debate_summary,
     )
     resp = llm.invoke([("system", P.JUDGE_SYSTEM), ("human", prompt)])
     data = _safe_parse_json(resp.content)

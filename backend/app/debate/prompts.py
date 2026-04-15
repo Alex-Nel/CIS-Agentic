@@ -81,6 +81,50 @@ Keep the same hard limits as proposal output:
 - assumptions (if present) <= 280 chars
 """
 
+SUMMARIZE_ROUND_PROMPT = """Below are the latest proposals from the Performance agent and the Security agent after a round of debate.
+
+Performance agent reasoning:
+{perf}
+
+Security agent reasoning:
+{sec}
+
+Extract ONLY the unresolved technical trade-offs between the two approaches.
+Ignore points both sides already agree on.
+Return a plain-text summary (NOT JSON), max 500 characters.
+"""
+
+REFLEXION_PROMPT = """Task:
+{task}
+
+Target language: {language}
+
+Debate summary from prior rounds:
+{debate_summary}
+
+Reflect on the critique your previous proposal received.
+Identify the weaknesses the opponent exposed, then generate a NEW proposal that:
+1. Directly addresses the unresolved trade-offs listed above.
+2. Stays true to your core priority (performance OR security).
+3. Does NOT simply copy the opponent's approach.
+
+Output JSON with keys:
+- code (string)
+- time_complexity (string)
+- space_complexity (string)
+- key_points (array of strings)
+- tradeoffs (string)
+- assumptions (string optional)
+
+Hard limits (must follow):
+- Keep `code` concise and production-ready, max ~2500 characters.
+- `time_complexity` max 80 chars.
+- `space_complexity` max 80 chars.
+- `key_points`: 1-3 items, each <= 140 chars.
+- `tradeoffs`: <= 280 chars.
+- `assumptions` (if present): <= 280 chars.
+"""
+
 JUDGE_INSTRUCTIONS = """You are judging for task: {task}
 Target language: {language}
 
@@ -89,6 +133,12 @@ Performance proposal (latest):
 
 Security proposal (latest):
 {sec}
+
+Debate Summary (trade-offs from prior rounds):
+{debate_summary}
+
+Evaluate both the final code AND how well each solution resolves the trade-offs highlighted in the Debate Summary.
+Penalize agents that ignored feedback from prior rounds.
 
 Rubric (total 100):
 - Correctness & completeness: 35

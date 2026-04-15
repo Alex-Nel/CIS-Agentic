@@ -32,6 +32,7 @@ def run_debate(req: DebateRequest):
         "sec_critiques": [],
         "perf_rebuttals": [],
         "sec_rebuttals": [],
+        "debate_summary": "",
         "judge": {},
     }
     result = debate_app.invoke(state)
@@ -56,6 +57,7 @@ def stream_debate(req: DebateRequest):
             "sec_critiques": [],
             "perf_rebuttals": [],
             "sec_rebuttals": [],
+            "debate_summary": "",
             "judge": {},
         }
 
