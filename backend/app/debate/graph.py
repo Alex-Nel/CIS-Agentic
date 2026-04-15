@@ -6,6 +6,7 @@ from langgraph.graph import StateGraph, START, END
 
 from .llm import get_llm
 from .models import CodeProposal, Critique, JudgeDecision
+from .tools import run_lizard, run_semgrep
 from . import prompts as P
 
 
@@ -81,7 +82,11 @@ def sec_propose(state: DebateState) -> Dict[str, Any]:
 
 def perf_critique(state: DebateState) -> Dict[str, Any]:
     opponent = state["sec_proposals"][-1]
-    prompt = P.CRITIQUE_INSTRUCTIONS.format(opponent=json.dumps(opponent, indent=2))
+    findings = run_lizard(opponent.get("code", ""), state["language"])
+    prompt = P.CRITIQUE_INSTRUCTIONS.format(
+        opponent=json.dumps(opponent, indent=2),
+        tool_findings=findings or "No static analysis findings.",
+    )
     resp = llm.invoke([("system", P.PERF_SYSTEM), ("human", prompt)])
     data = _safe_parse_json(resp.content)
     critique = Critique(**data).model_dump()
@@ -90,7 +95,11 @@ def perf_critique(state: DebateState) -> Dict[str, Any]:
 
 def sec_critique(state: DebateState) -> Dict[str, Any]:
     opponent = state["perf_proposals"][-1]
-    prompt = P.CRITIQUE_INSTRUCTIONS.format(opponent=json.dumps(opponent, indent=2))
+    findings = run_semgrep(opponent.get("code", ""), state["language"])
+    prompt = P.CRITIQUE_INSTRUCTIONS.format(
+        opponent=json.dumps(opponent, indent=2),
+        tool_findings=findings or "No static analysis findings.",
+    )
     resp = llm.invoke([("system", P.SEC_SYSTEM), ("human", prompt)])
     data = _safe_parse_json(resp.content)
     critique = Critique(**data).model_dump()

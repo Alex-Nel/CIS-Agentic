@@ -1,22 +1,58 @@
 # CIS-Agentic
 
-A small demo of a **multi-agent code debate**: two LLM roles (performance-focused vs security-focused) propose code, critique each other, rebut for several rounds, then a judge picks a winner. The backend is **FastAPI** + **LangGraph**; the model is **Google Gemini** via LangChain.
+A **multi-agent code debate** system: two LLM-powered agents (performance vs security) propose solutions, critique each other with static-analysis evidence, rebut over multiple rounds, and a judge picks the winner. Built with **FastAPI**, **LangGraph**, and **Google Gemini**.
 
-## What’s in the repo
+## Architecture
+
+```
+User request
+     │
+     ▼
+┌─────────────────────────────────────────┐
+│  perf_propose  ───►  sec_propose        │
+│       │                    │            │
+│       ▼                    ▼            │
+│  perf_critique         sec_critique     │  ◄── round loop
+│  (+ Lizard)            (+ Semgrep)      │
+│       │                    │            │
+│       ▼                    ▼            │
+│  perf_rebut  ───►  sec_rebut            │
+│       │                    │            │
+│       ▼                    ▼            │
+│         advance_round ──────►           │
+│              │          ▲               │
+│              └──────────┘               │
+└─────────────────┬───────────────────────┘
+                  ▼
+               judge  ──► final decision
+```
+
+Each agent has access to a static-analysis tool during critique:
+
+| Agent | Tool | What it provides |
+|-------|------|-----------------|
+| Performance | **Lizard** | Cyclomatic complexity, nesting depth, token count per function |
+| Security | **Semgrep** (optional) | CVE / vulnerability pattern matches with severity |
+
+## What's in the repo
 
 | Path | Purpose |
-|------|--------|
-| `backend/` | FastAPI app, LangGraph graph, prompts, Pydantic schemas |
-| `frontend/` | Static HTML/CSS/JS UI that calls the streaming debate API |
+|------|---------|
+| `backend/app/main.py` | FastAPI endpoints (`/debate`, `/debate/stream`) |
+| `backend/app/debate/graph.py` | LangGraph state machine (propose → critique → rebut → judge) |
+| `backend/app/debate/tools.py` | Lizard + Semgrep runners for tool-augmented critiques |
+| `backend/app/debate/prompts.py` | All system / instruction prompts |
+| `backend/app/debate/models.py` | Pydantic schemas with token-budget validators |
+| `backend/app/debate/llm.py` | Gemini LLM factory |
+| `frontend/` | Static HTML/CSS/JS UI with SSE streaming |
 
 ## Prerequisites
 
-- **Python 3.10+** (3.13 works with the pinned stack in `requirements.txt`)
+- **Python 3.10+**
 - A **Gemini API key** from [Google AI Studio](https://aistudio.google.com/)
+- *(Optional)* **Semgrep CLI** — install via [Homebrew](https://formulae.brew.sh/formula/semgrep) (`brew install semgrep`) or see [semgrep.dev](https://semgrep.dev/docs/getting-started/). If absent, the security agent still works but without tool-backed findings.
 
-## Backend setup
-
-From the repository root:
+## Setup
 
 ```bash
 cd backend
@@ -27,15 +63,13 @@ pip install -r requirements.txt
 
 ### Environment variables
 
-Create **`backend/.env`** (same directory you run `uvicorn` from so `python-dotenv` can find it):
+Create **`backend/.env`**:
 
 ```env
 GEMINI_API_KEY=your_key_here
 ```
 
-`GOOGLE_API_KEY` is also supported; the app checks `GOOGLE_API_KEY` first, then `GEMINI_API_KEY`.
-
-Do not commit real keys. `.env` should stay gitignored.
+`GOOGLE_API_KEY` is also accepted (checked first). Do not commit real keys.
 
 ### Run the API
 
@@ -51,50 +85,56 @@ Interactive docs: **http://127.0.0.1:8000/docs**
 
 ### `POST /debate`
 
-Runs the full graph and returns the judge’s decision as JSON (`winner`, `final_code`, `scores`, `explanation`).
+Runs the full debate synchronously. Returns the judge's JSON decision (`winner`, `final_code`, `scores`, `explanation`).
 
-**Body (JSON):**
-
-- `task` (string, required): code or description to debate
-- `language` (string, default `python`)
-- `rounds` (int, 1–3): debate rounds before judging
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `task` | string | *(required)* | Code snippet or description to debate |
+| `language` | string | `"python"` | Target language |
+| `rounds` | int (1-3) | `2` | Debate rounds before judging |
 
 ### `POST /debate/stream`
 
 Same inputs; responds with **Server-Sent Events**:
 
-- `event: update` — LangGraph node deltas as JSON
-- `event: final` — judge payload (same shape as `/debate` response)
+- `event: update` — per-node state deltas (JSON)
+- `event: final` — judge decision (same shape as `/debate`)
 
-Example (non-streaming):
+### Example
 
 ```bash
 curl -sS -X POST "http://127.0.0.1:8000/debate" \
   -H "Content-Type: application/json" \
-  -d '{"language":"python","rounds":2,"task":"Sum a list of integers."}'
+  -d '{"language":"python","rounds":1,"task":"Sum a list of integers."}'
 ```
 
 ## Frontend
 
-The UI expects the API at **http://localhost:8000** (see `frontend/app.js`).
-
-Serve the static files over HTTP (avoids some `file://` quirks):
+The UI calls **http://localhost:8000**. Serve the static files:
 
 ```bash
 cd frontend
 python3 -m http.server 8080
 ```
 
-Open **http://127.0.0.1:8080** (use another port if `8080` is busy).
+Open **http://127.0.0.1:8080**, fill in the form, click **Run Debate (Stream)**.
 
-Click **Run Debate (Stream)** after starting `uvicorn`.
+## Static analysis tools
+
+### Lizard (always on)
+
+Installed via `pip` as part of `requirements.txt`. During `perf_critique`, Lizard analyzes the security agent's code and feeds per-function complexity metrics (cyclomatic complexity, nesting depth, token count) into the performance agent's prompt.
+
+### Semgrep (optional)
+
+Not installed via pip (causes dependency conflicts); install the CLI separately. During `sec_critique`, Semgrep scans the performance agent's code with `--config auto` and feeds security findings (rule, severity, message) into the security agent's prompt. If Semgrep is not on `PATH`, the critique still runs — just without tool evidence.
 
 ## Behavior notes
 
-- **Latency**: Each run triggers many LLM calls (propose, critique, rebut × rounds, then judge). Expect tens of seconds to a few minutes.
-- **Quotas**: Gemini free tier limits can return `429`; space out runs or upgrade the API plan.
-- **Long debates**: With **more rounds**, proposals and the judge prompt grow; the judge may occasionally return empty or non-JSON text. If that happens, try fewer rounds, a shorter task, or higher output limits on the model side.
+- **Latency**: Each run makes many LLM calls. Expect 30s–3min depending on rounds.
+- **Quotas**: Gemini free tier can return `429`; space out runs or upgrade billing.
+- **Round limit**: Capped at 3. Higher rounds produce longer prompts that can cause empty / non-JSON judge responses.
 
 ## License / status
 
-Educational / demo project; tighten CORS and authentication before any public deployment.
+Educational demo. Tighten CORS and add authentication before any public deployment.

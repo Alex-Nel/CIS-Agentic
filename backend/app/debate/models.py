@@ -36,7 +36,7 @@ def _to_limited_list(v: Union[str, List[Any], None], max_items: int, max_chars: 
 class DebateRequest(BaseModel):
     language: str = Field("python", description="Target programming language (python, js, java, go, rust, etc.)")
     task: str = Field(..., description="User request: code snippet or description of desired function.")
-    rounds: int = Field(2, ge=1, le=3, description="Number of debate rounds (1-3 recommended).")
+    rounds: int = Field(2, ge=1, le=3, description="Number of debate rounds (1-3).")
 
 
 class CodeProposal(BaseModel):

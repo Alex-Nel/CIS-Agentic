@@ -9,3 +9,5 @@ langchain-google-genai
 python-dotenv==1.0.1
 pydantic==2.8.2
 typing_extensions==4.12.2
+
+lizard

@@ -43,7 +43,11 @@ CRITIQUE_INSTRUCTIONS = """You will critique the opponent proposal with your pri
 Opponent proposal:
 {opponent}
 
+Static analysis of the opponent's code:
+{tool_findings}
+
 Your critique must be practical and specific.
+Where relevant, reference the static analysis findings as supporting evidence.
 
 Output JSON with keys:
 - issues (array of strings)
