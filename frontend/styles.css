@@ -3,6 +3,16 @@ body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; backgroun
 .row { margin: 12px 0; display:flex; flex-direction:column; gap:6px; }
 input, textarea { padding: 10px; border-radius: 10px; border:1px solid #2a3142; background:#11182a; color:#e6e9f2; }
 button { padding: 10px 14px; border-radius: 12px; border:0; background:#4f7cff; color:white; cursor:pointer; font-weight:600; }
+button:disabled { opacity: 0.65; cursor: not-allowed; }
+
+.run-status { display: flex; align-items: center; gap: 10px; margin-top: 12px; padding: 10px 12px; border-radius: 10px; border: 1px solid #2a3142; background: #11182a; font-size: 0.95rem; color: #b4bdd4; }
+.run-status.is-running .spinner { display: block; }
+.spinner { display: none; width: 18px; height: 18px; border: 2px solid #2a3142; border-top-color: #4f7cff; border-radius: 50%; animation: spin 0.65s linear infinite; flex-shrink: 0; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.run-status-msg { line-height: 1.4; }
+.run-status.error { border-color: #8b3a3a; background: #1f1214; color: #f0b4b4; }
+.run-status.error .spinner { display: none; animation: none; }
 pre { background:#11182a; border:1px solid #2a3142; padding: 12px; border-radius: 12px; overflow:auto; max-height: 420px; }
 .code { white-space: pre; background:#11182a; border:1px solid #2a3142; padding:12px; border-radius:12px; overflow:auto; }
 .badge { display:inline-block; padding:4px 10px; border-radius: 999px; background:#26314d; margin-bottom:10px; }
